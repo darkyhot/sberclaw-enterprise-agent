@@ -226,6 +226,9 @@ class SkillManager:
             self.active_skill_names.append(name)
         return f"Skill activated: {name}"
 
+    def clear_active_skills(self) -> None:
+        self.active_skill_names = []
+
     def get_active_skill_context(self) -> str:
         if not self.active_skill_names:
             return ""

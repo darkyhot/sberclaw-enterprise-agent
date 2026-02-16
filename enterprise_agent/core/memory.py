@@ -75,6 +75,27 @@ class MemoryStore:
         self.conn.execute("DELETE FROM conversations")
         self.conn.commit()
 
+    def get_tool_logs(self, limit: int = 20) -> List[Dict[str, str]]:
+        rows = self.conn.execute(
+            """
+            SELECT tool_name, input, output, timestamp
+            FROM tool_logs
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        rows = list(reversed(rows))
+        return [
+            {
+                "tool_name": row["tool_name"],
+                "input": row["input"],
+                "output": row["output"],
+                "timestamp": row["timestamp"],
+            }
+            for row in rows
+        ]
+
     def add_tool_log(self, tool_name: str, tool_input: str, tool_output: str) -> None:
         now = datetime.utcnow().isoformat()
         self.conn.execute(
@@ -82,6 +103,14 @@ class MemoryStore:
             (tool_name, tool_input, tool_output, now),
         )
         self.conn.commit()
+
+    def reset_tool_logs(self) -> None:
+        self.conn.execute("DELETE FROM tool_logs")
+        self.conn.commit()
+
+    def reset_all(self) -> None:
+        self.reset_conversation()
+        self.reset_tool_logs()
 
     def close(self) -> None:
         self.conn.close()

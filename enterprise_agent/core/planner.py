@@ -26,6 +26,9 @@ class Planner:
     def update_plan(self, steps: List[str]) -> None:
         self.plan_steps = list(steps)
 
+    def reset(self) -> None:
+        self.plan_steps = []
+
     def select_relevant_skills(
         self,
         user_request: str,

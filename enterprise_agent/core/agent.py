@@ -53,6 +53,11 @@ tool={tool_name}, input={tool_input}
 This action was repeated 3 times.
 Reconsider and choose a different next step or return final."""
 
+WRITE_BLOCK_TEMPLATE = """Write action blocked: tool={tool_name}.
+The user did not explicitly request creating or writing files.
+Do not use write tools unless user explicitly asks for file/folder creation.
+Choose a non-write tool or return final."""
+
 
 class EnterpriseAgent:
     """Coordinates memory, planner, tools, and resilient LLM reasoning loop."""
@@ -276,6 +281,35 @@ class EnterpriseAgent:
         last_three = recent_actions[-3:]
         return all(item == last_three[0] for item in last_three)
 
+    def _has_explicit_write_intent(self, user_input: str) -> bool:
+        text = user_input.lower()
+        write_hints = [
+            "write file",
+            "create file",
+            "save file",
+            "generate file",
+            "make file",
+            "create folder",
+            "create directory",
+            "scaffold",
+            "project structure",
+            "создай файл",
+            "создать файл",
+            "запиши в файл",
+            "сохрани в файл",
+            "сгенерируй файл",
+            "создай папку",
+            "создай директорию",
+            "создать папку",
+            "создать директорию",
+            "создай проект",
+            "сгенерируй проект",
+        ]
+        return any(hint in text for hint in write_hints)
+
+    def _is_write_tool(self, tool_name: str) -> bool:
+        return tool_name in {"write_file", "create_directory"}
+
     def run(self, user_input: str) -> str:
         if user_input.strip() == "/reset":
             self.memory.reset_all()
@@ -297,6 +331,7 @@ class EnterpriseAgent:
 
         recent_actions: List[Tuple[str, str]] = []
         follow_up_instruction = ""
+        allow_write = self._has_explicit_write_intent(user_input)
 
         step_count = 0
         while step_count < self.max_steps:
@@ -328,6 +363,12 @@ class EnterpriseAgent:
                 )
                 self.memory.add_message("system", unknown_message)
                 follow_up_instruction = unknown_message
+                continue
+
+            if self._is_write_tool(tool_name) and not allow_write:
+                blocked_message = WRITE_BLOCK_TEMPLATE.format(tool_name=tool_name)
+                self.memory.add_message("system", blocked_message)
+                follow_up_instruction = blocked_message
                 continue
 
             result = self._execute_tool(tool_name, tool_input)
